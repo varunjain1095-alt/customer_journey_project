@@ -4,6 +4,7 @@ FastAPI backend for the Customer Journey Analytics Dashboard (Phase 4).
 Serves the React build (frontend/dist) and JSON endpoints over the Phase 1/2
 analytics modules. All data endpoints are filtered by dataset_version.
 """
+import json
 import os
 import threading
 
@@ -138,11 +139,40 @@ def create_app(db_path: str = DB_PATH) -> FastAPI:
             return tl
         return app.state.timeline_cache[key]
 
+    # Load precomputed cache snapshot if present (instant 0ms startup on Railway/local)
+    precomputed_path = os.path.join(os.path.dirname(__file__), "..", "data", "precomputed_cache.json")
+    if db_path != ":memory:" and os.path.isfile(precomputed_path):
+        try:
+            with open(precomputed_path, "r", encoding="utf-8") as f:
+                snap = json.load(f)
+            for ver in ("PRE", "POST"):
+                v_data = snap.get("variants", {}).get(ver)
+                if v_data and v_data.get("top"):
+                    app.state.variant_cache[(ver, "user_session")] = {
+                        tuple(r["path"]): int(r["session_count"]) for r in v_data["top"]
+                    }
+                d_data = snap.get("dfg", {}).get(ver)
+                if d_data and d_data.get("nodes"):
+                    app.state.dfg_cache[(ver, "user_session", 1.0, "full")] = d_data
+                    app.state.dfg_cache[(ver, "user_session", 0.6, "full")] = d_data
+                    if "value_defaults" in d_data:
+                        app.state.value_defaults_cache[ver] = d_data["value_defaults"]
+                    if "timeline" in d_data:
+                        app.state.timeline_cache[(ver, "user_session")] = d_data["timeline"]
+                for path_key, prof in snap.get("segments", {}).get(ver, {}).items():
+                    app.state.segment_cache[(ver, "user_session", tuple(path_key.split("|")))] = prof
+                for ekey, eb in snap.get("edge_segments", {}).get(ver, {}).items():
+                    if "->" in ekey:
+                        es, et = ekey.split("->", 1)
+                        app.state.edge_segment_cache[(ver, "user_session", es, et)] = eb
+            app.state.warm = True
+        except Exception:
+            pass
+
     def _warmup():
-        """Fill every cold-start cache in the background so the first UI request
-        isn't blocked on PM4Py import + 1.7M-row scans. On fresh cloud deploys
-        (e.g. Railway where the 318MB .duckdb file is gitignored), seed the DB
-        automatically before warming caches."""
+        """Fill every cold-start cache in the background if not already warm from snapshot."""
+        if app.state.warm:
+            return
         try:
             if db_path != ":memory:":
                 with app.state.db_lock:
@@ -169,7 +199,8 @@ def create_app(db_path: str = DB_PATH) -> FastAPI:
         except Exception:
             pass  # caches still fill lazily on demand
 
-    threading.Thread(target=_warmup, daemon=True).start()
+    if not app.state.warm:
+        threading.Thread(target=_warmup, daemon=True).start()
 
     @app.get("/api/health")
     def health():
