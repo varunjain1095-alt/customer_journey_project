@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# DuckDB database files (>100MB, generated at build/startup)
+data/*.duckdb
+data/*.duckdb.wal
+data/*.duckdb.tmp
+
+# Frontend build & dependencies (rebuilt in Dockerfile; public/animations/*.html are tracked)
+frontend/node_modules/
+frontend/dist/
+
+# Scratch / local artifacts
+anim_check.html
+.env
+.DS_Store
+Thumbs.db
