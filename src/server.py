@@ -373,7 +373,9 @@ def create_app(db_path: str = DB_PATH) -> FastAPI:
     return app
 
 
-# Lazy factory: run with: uvicorn --factory src.server:create_app --port 8001
+# Lazy factory: run with: python -m src.server (or uvicorn --factory src.server:create_app)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(create_app(), host="127.0.0.1", port=8001)
+    port = int(os.environ.get("PORT", "8001"))
+    host = os.environ.get("HOST", "0.0.0.0")
+    uvicorn.run(create_app(), host=host, port=port)

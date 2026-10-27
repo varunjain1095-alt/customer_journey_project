@@ -25,4 +25,4 @@ COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 RUN python scripts/generate_dataset.py --db-path /app/data/journeys.duckdb --sessions-per-version 150000 --overwrite
 
 EXPOSE 8001
-CMD ["sh", "-c", "uvicorn --factory src.server:create_app --host 0.0.0.0 --port ${PORT:-8001}"]
+CMD ["python", "-m", "src.server"]
