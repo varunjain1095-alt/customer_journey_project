@@ -14,9 +14,9 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 #diagram-wrap { height: 420px; border: 1px solid #1e293b; border-radius: 6px; background: #0f172a; }
 #diagram-wrap .react-flow__controls button { background: #1e293b; border-bottom: 1px solid #334155; color: #cbd5e1; }
 #diagram-wrap .react-flow__controls button:hover { background: #334155; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
-th { color: #6b7280; font-weight: 600; font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; }
+th, td { text-align: left; padding: 6px 8px; border: 1px solid #d1d5db; }
+th { color: #374151; font-weight: 600; font-size: 12px; background: #f1f5f9; }
 tr.variant { cursor: pointer; }
 tr.variant:hover { background: #eff6ff; }
 tr.variant.selected { background: #dbeafe; }
