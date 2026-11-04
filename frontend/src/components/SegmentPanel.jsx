@@ -12,7 +12,6 @@ const DIM_LABELS = {
   traffic_source: 'Traffic Source',
   membership_status: 'Membership Status',
   country: 'Country',
-  age_bucket: 'Age Bucket',
 }
 
 export function EdgeSegmentDrilldown({ edgeBreakdown }) {
@@ -22,19 +21,24 @@ export function EdgeSegmentDrilldown({ edgeBreakdown }) {
   return (
     <div className="panel edge-drilldown-panel">
       <h2>
-        Leak WHO Drill-Down: {edge.source} → {edge.target} (Baseline Drop Rate:{' '}
-        <span style={{ color: '#dc2626' }}>{baseline_drop_rate_pct}%</span> ·{' '}
-        {lost_volume.toLocaleString()} lost of {source_total.toLocaleString()} departures,{' '}
-        {advanced_count.toLocaleString()} advanced)
+        Who's dropping at {edge.source} → {edge.target}?
       </h2>
+      <div className="subnote" style={{ marginBottom: 6, fontSize: 12, color: '#334155' }}>
+        <span style={{ color: '#dc2626', fontWeight: 600 }}>{baseline_drop_rate_pct}%</span>{' '}
+        of users at {edge.source} ({lost_volume.toLocaleString()} of {source_total.toLocaleString()}){' '}
+        did not continue to {edge.target}. Only {advanced_count.toLocaleString()} advanced.
+      </div>
       <div className="subnote" style={{ marginBottom: 10 }}>
         Joined on <code>CUSTOMERS.user_id</code> across <code>device_type</code>,{' '}
-        <code>traffic_source</code>, <code>membership_status</code>, <code>country</code>, and{' '}
-        <code>age_bucket</code>. Red delta indicates the segment drops off more than the overall edge baseline (
+        <code>traffic_source</code>, <code>membership_status</code>, and <code>country</code>.
+        Users missing a dimension value appear as an explicit Unknown row.
+        Red delta indicates the segment drops off more than the overall edge baseline (
         {baseline_drop_rate_pct}%).
       </div>
       <div className="edge-dim-grid">
-        {Object.entries(dimensions || {}).map(([dim, rows]) => (
+        {Object.entries(dimensions || {})
+          .filter(([dim]) => dim !== 'age_bucket')
+          .map(([dim, rows]) => (
           <div key={dim} className="edge-dim-card">
             <h3>{DIM_LABELS[dim] || dim}</h3>
             <table>

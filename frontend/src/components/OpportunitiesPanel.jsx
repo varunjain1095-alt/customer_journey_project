@@ -113,57 +113,68 @@ export default function OpportunitiesPanel({
                 ? `: ${win.start} to ${win.midpoint} (H1) vs ${win.midpoint} to ${win.end} (H2)`
                 : ''}
             </h2>
-            <div className="subnote">
-              Baseline Behavioral Health (BEHAVIORAL_METRICS): Cart Abandon{' '}
-              {((popHealth.cart_abandonment_rate || 0) * 100).toFixed(1)}% · Avg Session{' '}
-              {popHealth.session_duration_average ?? ':'}s · Recency{' '}
-              {popHealth.days_since_last_purchase ?? ':'}d
-            </div>
           </div>
         </div>
 
+        {(() => {
+          const maxMove = changes.reduce(
+            (m, c) => Math.max(m, Math.abs(c.drop_rate_pts_change)), 0)
+          const topMover = changes.reduce(
+            (best, c) =>
+              Math.abs(c.drop_rate_pts_change) > Math.abs(best?.drop_rate_pts_change ?? -1)
+                ? c : best,
+            null)
+          const summary = maxMove <= 1
+            ? `No edge moved more than ${maxMove.toFixed(2)} pts between H1 and H2 — funnel stable this period.`
+            : `Largest movement: ${topMover.edge_key} moved ${maxMove.toFixed(2)} pts between H1 and H2.`
+          return <div className="subnote" style={{ marginBottom: 10 }}>{summary}</div>
+        })()}
+
         <div className="callout-grid">
-          {changes.slice(0, 6).map((c) => {
-            const isSel =
-              selectedEdge &&
-              selectedEdge.source === c.source &&
-              selectedEdge.target === c.target
-            return (
-              <div
-                key={c.edge_key}
-                className={`callout-card ${c.health_tag} ${isSel ? 'selected' : ''}`}
-                onClick={() =>
-                  onSelectEdge(
-                    isSel ? null : { source: c.source, target: c.target }
-                  )
-                }
-              >
-                <div className="callout-top">
-                  <span className={`tag trend-${c.trend_tag}`}>
-                    {c.trend_tag.toUpperCase()}
-                  </span>
-                  <span className={`tag health-${c.health_tag}`}>
-                    {c.health_tag.toUpperCase()}
-                  </span>
+          {[...changes]
+            .sort((a, b) => Math.abs(b.drop_rate_pts_change) - Math.abs(a.drop_rate_pts_change))
+            .slice(0, 6)
+            .map((c) => {
+              const pts = c.drop_rate_pts_change
+              const dir = pts > 0.05 ? 'worse' : pts < -0.05 ? 'better' : 'flat'
+              // User-impact: (H2 drop rate − H1 drop rate) × H2 volume at this edge
+              const usersAffected = Math.round(Math.abs(pts) / 100 * c.h2_count)
+              const verdict =
+                dir === 'worse'
+                  ? `worsened: ${fmtNum(usersAffected)} more users lost`
+                  : dir === 'better'
+                    ? `improved: ${fmtNum(usersAffected)} fewer users lost`
+                    : 'unchanged'
+              const isSel =
+                selectedEdge &&
+                selectedEdge.source === c.source &&
+                selectedEdge.target === c.target
+              return (
+                <div
+                  key={c.edge_key}
+                  className={`callout-card ${isSel ? 'selected' : ''}`}
+                  onClick={() =>
+                    onSelectEdge(
+                      isSel ? null : { source: c.source, target: c.target }
+                    )
+                  }
+                >
+                  <div className="callout-edge">{c.source} → {c.target}</div>
+                  <div className="callout-verdict">
+                    <span className={`verdict-dot ${dir}`} />
+                    Drop rate {verdict}
+                  </div>
+                  <div className="callout-meta">
+                    Drop rate: {c.h1_drop_rate_pct}% → {c.h2_drop_rate_pct}%
+                  </div>
+                  <div className="callout-meta">
+                    Volume: {fmtNum(c.h1_count)} → {fmtNum(c.h2_count)} (
+                    {c.volume_pct_change >= 0 ? '+' : ''}
+                    {c.volume_pct_change}%)
+                  </div>
                 </div>
-                <div className="callout-title">{c.callout}</div>
-                <div className="callout-meta">
-                  Drop rate: {c.h1_drop_rate_pct}% → {c.h2_drop_rate_pct}% (
-                  {c.drop_rate_pts_change >= 0 ? '+' : ''}
-                  {c.drop_rate_pts_change} pts) · Volume: {fmtNum(c.h1_count)} →{' '}
-                  {fmtNum(c.h2_count)} ({c.volume_pct_change >= 0 ? '+' : ''}
-                  {c.volume_pct_change}%)
-                </div>
-                <div className="callout-bm">
-                  Abandon:{' '}
-                  {(c.behavioral_signals.cart_abandonment_rate * 100).toFixed(1)}% ·
-                  Session: {c.behavioral_signals.session_duration_average}s ·
-                  Days since purchase:{' '}
-                  {c.behavioral_signals.days_since_last_purchase}d
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       </div>
 
@@ -237,8 +248,8 @@ export default function OpportunitiesPanel({
               <th>Advancing</th>
               <th>Source Out-Sum</th>
               <th>Lost Volume (Drop %)</th>
-              <th>Direct EXIT at Source</th>
-              <th>Lost $ (At-Stake)</th>
+              <th>EXIT from source node</th>
+              <th>Gross at-stake $ (non-additive)</th>
               <th>Recoverable @ {recoverablePct}%</th>
               <th>Hypothesis & Before / After</th>
             </tr>
@@ -382,6 +393,9 @@ export default function OpportunitiesPanel({
             })}
           </tbody>
         </table>
+        <div className="subnote" style={{ marginTop: 8 }}>
+          EXIT is a property of the source node, so it repeats across edges that share the same source.
+        </div>
       </div>
     </>
   )

@@ -394,7 +394,7 @@ def profile_edge_segment(conn: DuckDBPyConnection, dataset_version: str,
                          case_id: str = "user_session") -> dict:
     """
     Feature 2: Breaks a selected transition (edge_source -> edge_target) by
-    WHO (device_type, traffic_source, membership_status, country, age_bucket)
+    WHO (device_type, traffic_source, membership_status, country)
     by joining the event log to CUSTOMERS on user_id.
     Computes each segment's drop rate on that edge vs the overall baseline,
     using the exact same DFG departure definition:
@@ -428,23 +428,15 @@ def profile_edge_segment(conn: DuckDBPyConnection, dataset_version: str,
             FROM all_events
         )
         SELECT o.tgt,
-               COALESCE(c.device_type, 'UNKNOWN') AS device_type,
-               COALESCE(c.traffic_source, 'UNKNOWN') AS traffic_source,
-               COALESCE(c.membership_status, 'UNKNOWN') AS membership_status,
-               COALESCE(c.country, 'UNKNOWN') AS country,
-               CASE
-                   WHEN c.age IS NULL THEN 'UNKNOWN'
-                   WHEN c.age < 25 THEN '18-24'
-                   WHEN c.age < 35 THEN '25-34'
-                   WHEN c.age < 45 THEN '35-44'
-                   WHEN c.age < 55 THEN '45-54'
-                   ELSE '55+'
-               END AS age_bucket,
+               COALESCE(c.device_type, 'Unknown') AS device_type,
+               COALESCE(c.traffic_source, 'Unknown') AS traffic_source,
+               COALESCE(c.membership_status, 'Unknown') AS membership_status,
+               COALESCE(c.country, 'Unknown') AS country,
                COUNT(*) AS cnt
         FROM ordered o
         LEFT JOIN CUSTOMERS c ON o.user_id = c.user_id
         WHERE o.src = ?
-        GROUP BY 1, 2, 3, 4, 5, 6
+        GROUP BY 1, 2, 3, 4, 5
         """,
         [dataset_version, dataset_version, dataset_version, edge_source],
     ).fetchdf()
@@ -465,8 +457,10 @@ def profile_edge_segment(conn: DuckDBPyConnection, dataset_version: str,
     total_lost = max(total_src - total_adv, 0)
     baseline_drop_rate = (total_lost / total_src * 100.0) if total_src > 0 else 0.0
 
+    # age_bucket removed: CUSTOMERS.age joins correctly, but the dataset carries
+    # no age-conditioned behavior — every bucket lands within ~0.2pts of baseline.
     dimensions = {}
-    for dim in ("device_type", "traffic_source", "membership_status", "country", "age_bucket"):
+    for dim in ("device_type", "traffic_source", "membership_status", "country"):
         grp_all = transitions_df.groupby(dim, as_index=False)["cnt"].sum().rename(columns={"cnt": "source_total"})
         grp_adv = (
             transitions_df.loc[adv_mask]
