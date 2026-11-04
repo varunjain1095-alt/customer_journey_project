@@ -69,11 +69,6 @@ export default function OpportunitiesPanel({
     hypByEdge[h.edge_key] = h
   })
 
-  const timeline = dfg?.timeline || {}
-  const changes = timeline.changes || []
-  const popHealth = timeline.population_health || {}
-  const win = timeline.window || {}
-
   const openHypothesisEditor = (row, ev) => {
     ev.stopPropagation()
     const existing = hypByEdge[row.edgeKey]
@@ -103,81 +98,6 @@ export default function OpportunitiesPanel({
 
   return (
     <>
-      {/* Feature 3: Timeline Change Detection */}
-      <div className="panel">
-        <div className="panel-head-row">
-          <div>
-            <h2>
-              Timeline Change Detection
-              {win.start && win.end
-                ? `: ${win.start} to ${win.midpoint} (H1) vs ${win.midpoint} to ${win.end} (H2)`
-                : ''}
-            </h2>
-          </div>
-        </div>
-
-        {(() => {
-          const maxMove = changes.reduce(
-            (m, c) => Math.max(m, Math.abs(c.drop_rate_pts_change)), 0)
-          const topMover = changes.reduce(
-            (best, c) =>
-              Math.abs(c.drop_rate_pts_change) > Math.abs(best?.drop_rate_pts_change ?? -1)
-                ? c : best,
-            null)
-          const summary = maxMove <= 1
-            ? `No edge moved more than ${maxMove.toFixed(2)} pts between H1 and H2 — funnel stable this period.`
-            : `Largest movement: ${topMover.edge_key} moved ${maxMove.toFixed(2)} pts between H1 and H2.`
-          return <div className="subnote" style={{ marginBottom: 10 }}>{summary}</div>
-        })()}
-
-        <div className="callout-grid">
-          {[...changes]
-            .sort((a, b) => Math.abs(b.drop_rate_pts_change) - Math.abs(a.drop_rate_pts_change))
-            .slice(0, 6)
-            .map((c) => {
-              const pts = c.drop_rate_pts_change
-              const dir = pts > 0.05 ? 'worse' : pts < -0.05 ? 'better' : 'flat'
-              // User-impact: (H2 drop rate − H1 drop rate) × H2 volume at this edge
-              const usersAffected = Math.round(Math.abs(pts) / 100 * c.h2_count)
-              const verdict =
-                dir === 'worse'
-                  ? `worsened: ${fmtNum(usersAffected)} more users lost`
-                  : dir === 'better'
-                    ? `improved: ${fmtNum(usersAffected)} fewer users lost`
-                    : 'unchanged'
-              const isSel =
-                selectedEdge &&
-                selectedEdge.source === c.source &&
-                selectedEdge.target === c.target
-              return (
-                <div
-                  key={c.edge_key}
-                  className={`callout-card ${isSel ? 'selected' : ''}`}
-                  onClick={() =>
-                    onSelectEdge(
-                      isSel ? null : { source: c.source, target: c.target }
-                    )
-                  }
-                >
-                  <div className="callout-edge">{c.source} → {c.target}</div>
-                  <div className="callout-verdict">
-                    <span className={`verdict-dot ${dir}`} />
-                    Drop rate {verdict}
-                  </div>
-                  <div className="callout-meta">
-                    Drop rate: {c.h1_drop_rate_pct}% → {c.h2_drop_rate_pct}%
-                  </div>
-                  <div className="callout-meta">
-                    Volume: {fmtNum(c.h1_count)} → {fmtNum(c.h2_count)} (
-                    {c.volume_pct_change >= 0 ? '+' : ''}
-                    {c.volume_pct_change}%)
-                  </div>
-                </div>
-              )
-            })}
-        </div>
-      </div>
-
       {/* Feature 1 + Feature 4: Opportunities Panel (Ranked Leaks + Close the Loop) */}
       <div className="panel">
         <div className="panel-head-row">
